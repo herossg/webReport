@@ -28,6 +28,10 @@ function toNumber(value: unknown, fallback: number, min = 0): number {
   return Math.max(min, numberValue)
 }
 
+function toOptionalText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
 function elementBottom(element: ReportElement): number {
   return element.y + element.height
 }
@@ -271,6 +275,7 @@ function normalizeSection(
     repeat: role === 'footer' ? 'eachPage' : normalizedType === 'table' ? 'once' : section.repeat === 'eachPage' ? 'eachPage' : 'once',
     baseY: normalizeSectionBaseY(role, page, height, section.baseY),
     height,
+    dataSource: toOptionalText(section.dataSource),
     gapAfter: toNumber(section.gapAfter, 0),
     elementIds: rawElementIds,
     tableElementId,

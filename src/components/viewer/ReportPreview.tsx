@@ -1,4 +1,5 @@
 import { useReportStore } from '../../store/reportStore'
+import { getScopedData } from '../../report/bindings'
 import { paginateReport } from '../../report/pagination'
 import { ReportElementRenderer } from '../ReportElementRenderer'
 
@@ -28,25 +29,33 @@ export function ReportPreview() {
                 transform: `scale(${previewScale})`,
               }}
             >
-              {page.elements.map((item, index) => (
-                <div
-                  key={`${item.element.id}-${page.pageNumber}-${index}`}
-                  className="preview-element"
-                  style={{
-                    left: item.x,
-                    top: item.y,
-                    width: item.width,
-                    height: item.height,
-                  }}
-                >
-                  <ReportElementRenderer
-                    element={item.element}
-                    data={sampleData}
-                    mode="viewer"
-                    tableRows={item.rows}
-                  />
-                </div>
-              ))}
+              {page.elements.map((item, index) => {
+                const elementData =
+                  item.element.type === 'table' && item.element.tableMode !== 'static'
+                    ? sampleData
+                    : getScopedData(sampleData, item.dataSource)
+
+                return (
+                  <div
+                    key={`${item.element.id}-${page.pageNumber}-${index}`}
+                    className="preview-element"
+                    style={{
+                      left: item.x,
+                      top: item.y,
+                      width: item.width,
+                      height: item.height,
+                    }}
+                  >
+                    <ReportElementRenderer
+                      element={item.element}
+                      data={elementData}
+                      dataSource={item.dataSource}
+                      mode="viewer"
+                      tableRows={item.rows}
+                    />
+                  </div>
+                )
+              })}
             </div>
           </div>
         ))}

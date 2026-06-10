@@ -1,7 +1,8 @@
-import { Copy, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Copy, Trash2 } from 'lucide-react'
 import { getResolvedTableStyle } from '../../report/tableStyles'
 import type {
   ReportColumn,
+  ReportDataSource,
   ReportElement,
   ReportSection,
   ReportTableColumnStyle,
@@ -227,6 +228,100 @@ function getSectionBadge(section: ReportSection, tableElement?: ReportElement): 
   }
 
   return tableElement?.tableMode === 'static' ? '고정표' : '반복표'
+}
+
+function DataSourceSelect({
+  label,
+  value,
+  dataSources,
+  emptyLabel,
+  onChange,
+}: {
+  label: string
+  value?: string
+  dataSources: ReportDataSource[]
+  emptyLabel: string
+  onChange: (value: string | undefined) => void
+}) {
+  return (
+    <label className="form-field">
+      <span>{label}</span>
+      <select value={value ?? ''} onChange={(event) => onChange(event.target.value || undefined)}>
+        <option value="">{emptyLabel}</option>
+        {dataSources.map((dataSource) => (
+          <option key={dataSource.id} value={dataSource.id}>
+            {dataSource.label || dataSource.id}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+type ElementLayerDirection = 'front' | 'back' | 'forward' | 'backward'
+
+function LayerControls({
+  element,
+  section,
+  onMove,
+}: {
+  element: ReportElement
+  section?: ReportSection
+  onMove: (id: string, direction: ElementLayerDirection) => void
+}) {
+  const layerIds = section?.elementIds ?? []
+  const layerIndex = layerIds.indexOf(element.id)
+  const layerCount = layerIds.length
+  const hasMultipleLayers = layerCount > 1 && layerIndex >= 0
+  const isBack = !hasMultipleLayers || layerIndex === 0
+  const isFront = !hasMultipleLayers || layerIndex === layerCount - 1
+
+  return (
+    <div className="form-section">
+      <span className="section-title">레이어</span>
+      <div className="layer-summary">
+        {hasMultipleLayers ? `${layerIndex + 1} / ${layerCount}` : '이 영역에 겹칠 수 있는 다른 요소가 없습니다.'}
+      </div>
+      <div className="layer-button-grid">
+        <button
+          type="button"
+          className="button subtle"
+          disabled={isFront}
+          onClick={() => onMove(element.id, 'front')}
+        >
+          <ArrowUp size={16} />
+          맨위
+        </button>
+        <button
+          type="button"
+          className="button subtle"
+          disabled={isFront}
+          onClick={() => onMove(element.id, 'forward')}
+        >
+          <ArrowUp size={16} />
+          위로
+        </button>
+        <button
+          type="button"
+          className="button subtle"
+          disabled={isBack}
+          onClick={() => onMove(element.id, 'backward')}
+        >
+          <ArrowDown size={16} />
+          아래로
+        </button>
+        <button
+          type="button"
+          className="button subtle"
+          disabled={isBack}
+          onClick={() => onMove(element.id, 'back')}
+        >
+          <ArrowDown size={16} />
+          맨뒤
+        </button>
+      </div>
+    </div>
+  )
 }
 
 type AlignValue = NonNullable<ReportColumn['align']>
@@ -511,11 +606,13 @@ function StaticColumnStyleCard({
 function TableProperties({
   element,
   section,
+  dataSources,
   onChange,
   onSectionChange,
 }: {
   element: ReportElement
   section?: ReportSection
+  dataSources: ReportDataSource[]
   onChange: (patch: Partial<ReportElement>) => void
   onSectionChange?: (id: string, patch: Partial<ReportSection>) => void
 }) {
@@ -644,9 +741,11 @@ function TableProperties({
         </>
       ) : (
         <>
-          <TextField
+          <DataSourceSelect
             label="데이터 소스"
             value={element.dataSource ?? ''}
+            dataSources={dataSources}
+            emptyLabel={section?.dataSource ? `부모 영역 사용 (${section.dataSource})` : '부모 영역/기본 데이터 사용'}
             onChange={(value) => onChange({ dataSource: value })}
           />
           <div className="column-list">
@@ -690,12 +789,14 @@ function SectionProperties({
   template,
   onRemove,
   onSectionChange,
+  onSectionResize,
   onElementChange,
 }: {
   section: ReportSection
   template: ReportTemplate
   onRemove: (id: string) => void
   onSectionChange: (id: string, patch: Partial<ReportSection>) => void
+  onSectionResize: (id: string, height: number) => void
   onElementChange: (id: string, patch: Partial<ReportElement>) => void
 }) {
   const locked = isLockedSection(section)
@@ -718,6 +819,14 @@ function SectionProperties({
           <span>{section.elementIds.length}개 요소가 이 영역에 속해 있습니다.</span>
         </div>
 
+        <DataSourceSelect
+          label="영역 데이터소스"
+          value={section.dataSource}
+          dataSources={template.dataSources}
+          emptyLabel="기본/root 데이터 사용"
+          onChange={(value) => onSectionChange(section.id, { dataSource: value })}
+        />
+
         <div className="form-grid">
           <NumericField
             label="시작 Y"
@@ -729,7 +838,7 @@ function SectionProperties({
             label="영역 높이"
             value={section.height}
             min={1}
-            onCommit={(value) => onSectionChange(section.id, { height: value })}
+            onCommit={(value) => onSectionResize(section.id, value)}
           />
           <NumericField
             label="뒤 여백"
@@ -842,7 +951,9 @@ export function PropertiesPanel() {
   const selectedSectionId = useReportStore((state) => state.selectedSectionId)
   const assignElementToSection = useReportStore((state) => state.assignElementToSection)
   const updateSection = useReportStore((state) => state.updateSection)
+  const resizeSection = useReportStore((state) => state.resizeSection)
   const updateElement = useReportStore((state) => state.updateElement)
+  const moveElementLayer = useReportStore((state) => state.moveElementLayer)
   const removeSection = useReportStore((state) => state.removeSection)
   const removeElement = useReportStore((state) => state.removeElement)
   const duplicateElement = useReportStore((state) => state.duplicateElement)
@@ -858,6 +969,7 @@ export function PropertiesPanel() {
         template={template}
         onRemove={removeSection}
         onSectionChange={updateSection}
+        onSectionResize={resizeSection}
         onElementChange={updateElement}
       />
     )
@@ -916,6 +1028,8 @@ export function PropertiesPanel() {
           </select>
         </label>
 
+        <LayerControls element={element} section={elementSection} onMove={moveElementLayer} />
+
         <div className="form-grid">
           <NumericField label="X" value={element.x} min={0} max={maxX} onCommit={(value) => change({ x: value })} />
           <NumericField label="Y" value={element.y} min={0} max={maxY} onCommit={(value) => change({ y: value })} />
@@ -957,6 +1071,7 @@ export function PropertiesPanel() {
           <TableProperties
             element={element}
             section={elementSection}
+            dataSources={template.dataSources}
             onChange={change}
             onSectionChange={updateSection}
           />

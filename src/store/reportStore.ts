@@ -6,6 +6,7 @@ import { normalizeTemplateSections } from '../report/sections'
 import { cloneInitialTemplate, createReportElement } from '../report/template'
 import type {
   ReportData,
+  ReportDataSource,
   ReportElement,
   ReportElementType,
   ReportSection,
@@ -19,6 +20,10 @@ type Mode = 'designer' | 'viewer'
 
 type SectionMoveDirection = 'up' | 'down'
 
+type ElementLayerDirection = 'front' | 'back' | 'forward' | 'backward'
+
+const MIN_SECTION_HEIGHT = 32
+
 interface ImportResult {
   ok: boolean
   error?: string
@@ -31,6 +36,7 @@ interface ReportState {
   selectedElementId: string | null
   selectedSectionId: string | null
   setMode: (mode: Mode) => void
+  setReportData: (data: ReportData) => void
   selectElement: (id: string | null) => void
   selectSection: (id: string | null) => void
   addElement: (type: ReportElementType) => void
@@ -38,9 +44,14 @@ interface ReportState {
   moveSection: (id: string, direction: SectionMoveDirection) => void
   removeSection: (id: string) => void
   updatePage: (patch: PageSettingsPatch) => void
+  addDataSource: () => void
+  updateDataSource: (id: string, patch: Partial<ReportDataSource>) => void
+  removeDataSource: (id: string) => void
   updateSection: (id: string, patch: Partial<ReportSection>) => void
+  resizeSection: (id: string, height: number) => void
   assignElementToSection: (elementId: string, sectionId: string) => void
   updateElement: (id: string, patch: Partial<ReportElement>) => void
+  moveElementLayer: (id: string, direction: ElementLayerDirection) => void
   removeElement: (id: string) => void
   duplicateElement: (id: string) => void
   resetTemplate: () => void
@@ -54,8 +65,17 @@ function withUpdatedAt(template: ReportTemplate): ReportTemplate {
   }
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
 function normalizeTemplate(template: ReportTemplate): ReportTemplate {
-  return normalizeTemplateSections(normalizeReportTemplate(template))
+  const normalizedTemplate = normalizeTemplateSections(normalizeReportTemplate(template))
+
+  return {
+    ...normalizedTemplate,
+    dataSources: Array.isArray(normalizedTemplate.dataSources) ? normalizedTemplate.dataSources : [],
+  }
 }
 
 function isReportTemplate(value: unknown): value is ReportTemplate {
@@ -71,6 +91,19 @@ function createStaticCells(rows: number, columns: number): string[][] {
   return Array.from({ length: rows }, (_row, rowIndex) =>
     Array.from({ length: columns }, (_column, columnIndex) => `R${rowIndex + 1}C${columnIndex + 1}`),
   )
+}
+
+function getNextDataSourceId(template: ReportTemplate): string {
+  const usedIds = new Set(template.dataSources.map((dataSource) => dataSource.id))
+  let index = template.dataSources.length + 1
+  let id = `source${index}`
+
+  while (usedIds.has(id)) {
+    index += 1
+    id = `source${index}`
+  }
+
+  return id
 }
 
 function getNextSectionBaseY(template: ReportTemplate): number {
@@ -272,6 +305,173 @@ function moveSectionLayout(
   }
 }
 
+function getSectionElements(template: ReportTemplate, section: ReportSection): ReportElement[] {
+  const elementsById = new Map(template.elements.map((element) => [element.id, element]))
+
+  return section.elementIds
+    .map((elementId) => elementsById.get(elementId))
+    .filter((element): element is ReportElement => element != null)
+}
+
+function getSectionMinimumHeight(template: ReportTemplate, section: ReportSection): number {
+  const elements = getSectionElements(template, section)
+
+  if (elements.length === 0) {
+    return MIN_SECTION_HEIGHT
+  }
+
+  if (isFooterSection(section)) {
+    const footerBottom = template.page.height - template.page.margin.bottom
+    const contentTop = Math.min(...elements.map((element) => element.y))
+
+    return Math.max(MIN_SECTION_HEIGHT, footerBottom - contentTop)
+  }
+
+  const contentBottom = Math.max(...elements.map((element) => element.y + element.height))
+
+  return Math.max(MIN_SECTION_HEIGHT, contentBottom - section.baseY)
+}
+
+function getSectionMaximumHeight(template: ReportTemplate, section: ReportSection): number {
+  if (isFooterSection(section)) {
+    return template.page.height - template.page.margin.bottom
+  }
+
+  const footer = template.sections.find(isFooterSection)
+  const contentBottom = footer?.baseY ?? template.page.height - template.page.margin.bottom
+
+  return Math.max(getSectionMinimumHeight(template, section), contentBottom - section.baseY)
+}
+
+function resizeSectionLayout(
+  template: ReportTemplate,
+  id: string,
+  rawHeight: number,
+): Pick<ReportTemplate, 'sections' | 'elements'> | null {
+  const sectionIndex = template.sections.findIndex((section) => section.id === id)
+
+  if (sectionIndex < 0) {
+    return null
+  }
+
+  const targetSection = template.sections[sectionIndex]
+  const minimumHeight = getSectionMinimumHeight(template, targetSection)
+  const maximumHeight = getSectionMaximumHeight(template, targetSection)
+  const nextHeight = clamp(rawHeight, minimumHeight, maximumHeight)
+  const deltaY = nextHeight - targetSection.height
+
+  if (deltaY === 0) {
+    return null
+  }
+
+  const shiftedSectionIds = new Set<string>()
+  const nextSections = template.sections.map((section, index) => {
+    if (section.id === id) {
+      return {
+        ...section,
+        height: nextHeight,
+      }
+    }
+
+    if (index > sectionIndex && !isLockedSection(section)) {
+      shiftedSectionIds.add(section.id)
+
+      return {
+        ...section,
+        baseY: section.baseY + deltaY,
+      }
+    }
+
+    return section
+  })
+  const shiftedElementIds = new Set(
+    template.sections
+      .filter((section) => shiftedSectionIds.has(section.id))
+      .flatMap((section) => section.elementIds),
+  )
+
+  return {
+    sections: nextSections,
+    elements: template.elements.map((element) =>
+      shiftedElementIds.has(element.id)
+        ? {
+            ...element,
+            y: element.y + deltaY,
+          }
+        : element,
+    ),
+  }
+}
+
+function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  const nextItems = [...items]
+  const [item] = nextItems.splice(fromIndex, 1)
+
+  nextItems.splice(toIndex, 0, item)
+
+  return nextItems
+}
+
+function getLayerTargetIndex(
+  currentIndex: number,
+  itemCount: number,
+  direction: ElementLayerDirection,
+): number {
+  if (direction === 'front') {
+    return itemCount - 1
+  }
+
+  if (direction === 'back') {
+    return 0
+  }
+
+  if (direction === 'forward') {
+    return Math.min(itemCount - 1, currentIndex + 1)
+  }
+
+  return Math.max(0, currentIndex - 1)
+}
+
+function moveElementLayerInTemplate(
+  template: ReportTemplate,
+  elementId: string,
+  direction: ElementLayerDirection,
+): ReportTemplate | null {
+  const sectionId = getElementSectionId(template, elementId)
+  const section = sectionId ? template.sections.find((item) => item.id === sectionId) : undefined
+
+  if (!section) {
+    return null
+  }
+
+  const elementIds = section.elementIds.filter((id, index, ids) => ids.indexOf(id) === index)
+  const currentIndex = elementIds.indexOf(elementId)
+
+  if (currentIndex < 0 || elementIds.length < 2) {
+    return null
+  }
+
+  const targetIndex = getLayerTargetIndex(currentIndex, elementIds.length, direction)
+
+  if (targetIndex === currentIndex) {
+    return null
+  }
+
+  const nextElementIds = moveItem(elementIds, currentIndex, targetIndex)
+
+  return {
+    ...template,
+    sections: template.sections.map((item) =>
+      item.id === section.id
+        ? {
+            ...item,
+            elementIds: nextElementIds,
+          }
+        : item,
+    ),
+  }
+}
+
 export const useReportStore = create<ReportState>()(
   persist(
     (set, get) => ({
@@ -281,6 +481,7 @@ export const useReportStore = create<ReportState>()(
       selectedElementId: 'title',
       selectedSectionId: 'report-header',
       setMode: (mode) => set({ mode }),
+      setReportData: (data) => set({ sampleData: data }),
       selectElement: (id) => {
         const { template } = get()
 
@@ -479,6 +680,92 @@ export const useReportStore = create<ReportState>()(
           ),
         })
       },
+      addDataSource: () => {
+        const { template } = get()
+        const id = getNextDataSourceId(template)
+
+        set({
+          template: withUpdatedAt({
+            ...template,
+            dataSources: [
+              ...template.dataSources,
+              {
+                id,
+                label: `데이터소스 ${template.dataSources.length + 1}`,
+                description: '',
+                url: '',
+                path: '',
+              },
+            ],
+          }),
+        })
+      },
+      updateDataSource: (id, patch) => {
+        const { template } = get()
+        const nextIdCandidate = typeof patch.id === 'string' ? patch.id.trim() : id
+        const canChangeId =
+          nextIdCandidate &&
+          nextIdCandidate !== id &&
+          !template.dataSources.some((dataSource) => dataSource.id === nextIdCandidate)
+        const nextId = canChangeId ? nextIdCandidate : id
+
+        set({
+          template: withUpdatedAt({
+            ...template,
+            dataSources: template.dataSources.map((dataSource) =>
+              dataSource.id === id
+                ? {
+                    ...dataSource,
+                    ...patch,
+                    id: nextId,
+                  }
+                : dataSource,
+            ),
+            sections: template.sections.map((section) =>
+              section.dataSource === id
+                ? {
+                    ...section,
+                    dataSource: nextId,
+                  }
+                : section,
+            ),
+            elements: template.elements.map((element) =>
+              element.dataSource === id
+                ? {
+                    ...element,
+                    dataSource: nextId,
+                  }
+                : element,
+            ),
+          }),
+        })
+      },
+      removeDataSource: (id) => {
+        const { template } = get()
+
+        set({
+          template: withUpdatedAt({
+            ...template,
+            dataSources: template.dataSources.filter((dataSource) => dataSource.id !== id),
+            sections: template.sections.map((section) =>
+              section.dataSource === id
+                ? {
+                    ...section,
+                    dataSource: undefined,
+                  }
+                : section,
+            ),
+            elements: template.elements.map((element) =>
+              element.dataSource === id
+                ? {
+                    ...element,
+                    dataSource: undefined,
+                  }
+                : element,
+            ),
+          }),
+        })
+      },
       updateSection: (id, patch) => {
         const { template } = get()
 
@@ -494,6 +781,24 @@ export const useReportStore = create<ReportState>()(
                     }
                   : section,
               ),
+            }),
+          ),
+        })
+      },
+      resizeSection: (id, height) => {
+        const { template } = get()
+        const layout = resizeSectionLayout(template, id, height)
+
+        if (!layout) {
+          return
+        }
+
+        set({
+          template: withUpdatedAt(
+            normalizeTemplate({
+              ...template,
+              sections: layout.sections,
+              elements: layout.elements,
             }),
           ),
         })
@@ -533,6 +838,20 @@ export const useReportStore = create<ReportState>()(
             ),
           ),
           selectedSectionId: nextSectionId ?? getElementSectionId(template, id),
+        })
+      },
+      moveElementLayer: (id, direction) => {
+        const { template } = get()
+        const nextTemplate = moveElementLayerInTemplate(template, id, direction)
+
+        if (!nextTemplate) {
+          return
+        }
+
+        set({
+          template: withUpdatedAt(normalizeTemplate(nextTemplate)),
+          selectedElementId: id,
+          selectedSectionId: getElementSectionId(nextTemplate, id),
         })
       },
       removeElement: (id) => {

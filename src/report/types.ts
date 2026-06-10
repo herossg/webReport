@@ -106,6 +106,8 @@ export interface ReportDataSource {
   id: string
   label: string
   description: string
+  url?: string
+  path?: string
 }
 
 export interface ReportSection {
@@ -117,6 +119,7 @@ export interface ReportSection {
   repeat: ReportSectionRepeat
   baseY: number
   height: number
+  dataSource?: string
   gapAfter?: number
   elementIds: string[]
   tableElementId?: string

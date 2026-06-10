@@ -8,6 +8,7 @@ export interface PaginatedElement {
   y: number
   width: number
   height: number
+  dataSource?: string
   rows?: Record<string, unknown>[]
 }
 
@@ -69,6 +70,7 @@ function fixedSectionItems(
       y: top + element.y - section.baseY,
       width: element.width,
       height: element.height,
+      dataSource: element.type === 'table' ? element.dataSource ?? section.dataSource : section.dataSource,
     }))
 }
 
@@ -82,6 +84,7 @@ function repeatedSectionItems(
     y: element.y,
     width: element.width,
     height: element.height,
+    dataSource: element.type === 'table' ? element.dataSource ?? section.dataSource : section.dataSource,
   }))
 }
 
@@ -119,6 +122,7 @@ export function paginateReport(template: ReportTemplate, data: ReportData): Pagi
         return
       }
 
+      const tableDataSource = tableElement.dataSource ?? section.dataSource
       const excludedTableIds = new Set([tableElement.id])
       const tableOffset = Math.max(0, tableElement.y - section.baseY)
 
@@ -134,12 +138,13 @@ export function paginateReport(template: ReportTemplate, data: ReportData): Pagi
           y: cursor + tableOffset,
           width: tableElement.width,
           height: tableElement.height,
+          dataSource: tableDataSource,
         })
         cursor += section.height + getSectionGap(section)
         return
       }
 
-      const rows = getDataRows(data, tableElement.dataSource)
+      const rows = getDataRows(data, tableDataSource)
       const headerHeight = section.repeatHeader === false ? 0 : section.headerHeight ?? 40
       const rowHeight = section.rowHeight ?? 40
 
@@ -157,6 +162,7 @@ export function paginateReport(template: ReportTemplate, data: ReportData): Pagi
           y: cursor + tableOffset,
           width: tableElement.width,
           height: emptyTableHeight,
+          dataSource: tableDataSource,
           rows: [],
         })
         cursor += Math.max(section.height, tableOffset + emptyTableHeight) + getSectionGap(section)
@@ -184,6 +190,7 @@ export function paginateReport(template: ReportTemplate, data: ReportData): Pagi
           y: cursor + tableOffset,
           width: tableElement.width,
           height: tableHeight,
+          dataSource: tableDataSource,
           rows: pageRows,
         })
 

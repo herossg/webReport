@@ -1,5 +1,9 @@
 import type { ReportData } from './types'
 
+function isRecord(value: unknown): value is ReportData {
+  return value != null && typeof value === 'object' && !Array.isArray(value)
+}
+
 export function resolvePath(source: unknown, path: string): unknown {
   if (!path.trim()) {
     return undefined
@@ -49,8 +53,26 @@ export function interpolateText(template: string | undefined, data: ReportData):
   })
 }
 
+export function resolveDataSource(data: ReportData, sourceId: string | undefined): unknown {
+  if (!sourceId) {
+    return data
+  }
+
+  if (Object.hasOwn(data, sourceId)) {
+    return data[sourceId]
+  }
+
+  return resolvePath(data, sourceId)
+}
+
+export function getScopedData(data: ReportData, sourceId: string | undefined): ReportData {
+  const value = resolveDataSource(data, sourceId)
+
+  return isRecord(value) ? value : data
+}
+
 export function getDataRows(data: ReportData, sourceId: string | undefined): Record<string, unknown>[] {
-  const value = sourceId ? resolvePath(data, sourceId) : undefined
+  const value = resolveDataSource(data, sourceId)
 
   if (!Array.isArray(value)) {
     return []

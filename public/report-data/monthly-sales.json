@@ -1,0 +1,67 @@
+{
+  "company": {
+    "name": "Acme Korea",
+    "registrationNo": "110-81-12345",
+    "address": "서울특별시 강남구 테헤란로 152"
+  },
+  "report": {
+    "title": "URL 호출 월별 매출 리포트",
+    "period": "2026년 5월",
+    "generatedAt": "2026-06-10",
+    "manager": "김리포트"
+  },
+  "ordersSummary": {
+    "orderCount": 8,
+    "totalAmount": 53170000
+  },
+  "orders": [
+    {
+      "orderNo": "SO-2026-0501",
+      "customerName": "한빛상사",
+      "productName": "Enterprise License",
+      "amount": 9600000
+    },
+    {
+      "orderNo": "SO-2026-0507",
+      "customerName": "동서물류",
+      "productName": "Report Designer",
+      "amount": 7250000
+    },
+    {
+      "orderNo": "SO-2026-0511",
+      "customerName": "서진테크",
+      "productName": "Viewer Runtime",
+      "amount": 6800000
+    },
+    {
+      "orderNo": "SO-2026-0517",
+      "customerName": "에코푸드",
+      "productName": "PDF Export Pack",
+      "amount": 4700000
+    },
+    {
+      "orderNo": "SO-2026-0522",
+      "customerName": "마루건설",
+      "productName": "Audit Module",
+      "amount": 6720000
+    },
+    {
+      "orderNo": "SO-2026-0528",
+      "customerName": "네오교육",
+      "productName": "Template Support",
+      "amount": 4670000
+    },
+    {
+      "orderNo": "SO-2026-0530",
+      "customerName": "파인리테일",
+      "productName": "Report Runtime",
+      "amount": 7350000
+    },
+    {
+      "orderNo": "SO-2026-0531",
+      "customerName": "하나제조",
+      "productName": "Design Pack",
+      "amount": 6080000
+    }
+  ]
+}

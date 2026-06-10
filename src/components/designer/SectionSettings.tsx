@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import type { ReportElement, ReportSection } from '../../report/types'
 import { useReportStore } from '../../store/reportStore'
 
@@ -33,6 +34,7 @@ function canMoveSection(sections: ReportSection[], index: number, direction: 'up
 }
 
 export function SectionSettings() {
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const template = useReportStore((state) => state.template)
   const sections = template.sections
   const selectedSectionId = useReportStore((state) => state.selectedSectionId)
@@ -40,92 +42,107 @@ export function SectionSettings() {
   const moveSection = useReportStore((state) => state.moveSection)
   const removeSection = useReportStore((state) => state.removeSection)
   const selectSection = useReportStore((state) => state.selectSection)
+  const ToggleIcon = isCollapsed ? ChevronRight : ChevronDown
 
   return (
-    <section className="panel section-settings app-chrome">
+    <section className={`panel section-settings app-chrome ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="panel-header">
         <span>리포트 영역</span>
-        <small>{sections.length}개</small>
+        <div className="panel-header-actions">
+          <small>{sections.length}개</small>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={isCollapsed ? '리포트 영역 펼치기' : '리포트 영역 접기'}
+            onClick={() => setIsCollapsed((value) => !value)}
+          >
+            <ToggleIcon size={16} />
+          </button>
+        </div>
       </div>
 
-      <div className="section-actions">
-        <button type="button" className="button subtle" onClick={() => addSection('fixed')}>
-          <Plus size={14} />
-          고정
-        </button>
-        <button type="button" className="button subtle" onClick={() => addSection('table', 'data')}>
-          <Plus size={14} />
-          반복표
-        </button>
-        <button type="button" className="button subtle" onClick={() => addSection('table', 'static')}>
-          <Plus size={14} />
-          고정표
-        </button>
-      </div>
+      {isCollapsed ? null : (
+        <>
+          <div className="section-actions">
+            <button type="button" className="button subtle" onClick={() => addSection('fixed')}>
+              <Plus size={14} />
+              고정
+            </button>
+            <button type="button" className="button subtle" onClick={() => addSection('table', 'data')}>
+              <Plus size={14} />
+              반복표
+            </button>
+            <button type="button" className="button subtle" onClick={() => addSection('table', 'static')}>
+              <Plus size={14} />
+              고정표
+            </button>
+          </div>
 
-      <div className="section-list compact">
-        {sections.map((section, sectionIndex) => {
-          const tableElement = section.tableElementId
-            ? template.elements.find((element) => element.id === section.tableElementId)
-            : undefined
-          const locked = isLockedSection(section)
+          <div className="section-list compact">
+            {sections.map((section, sectionIndex) => {
+              const tableElement = section.tableElementId
+                ? template.elements.find((element) => element.id === section.tableElementId)
+                : undefined
+              const locked = isLockedSection(section)
 
-          return (
-            <article
-              className={`section-card compact ${selectedSectionId === section.id ? 'selected' : ''}`}
-              data-section-id={section.id}
-              key={section.id}
-              onClick={() => selectSection(section.id)}
-            >
-              <div className="section-card-header compact">
-                <div className="section-list-title">
-                  <strong>{section.name}</strong>
-                  <small>
-                    Y {section.baseY} / H {section.height} / {section.elementIds.length}개 요소
-                  </small>
-                </div>
-                <span className={`section-badge ${section.type}`}>{getTypeLabel(section, tableElement)}</span>
-                <div className="section-order-buttons">
-                  <button
-                    type="button"
-                    aria-label="영역 위로 이동"
-                    disabled={!canMoveSection(sections, sectionIndex, 'up')}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      moveSection(section.id, 'up')
-                    }}
-                  >
-                    <ArrowUp size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="영역 아래로 이동"
-                    disabled={!canMoveSection(sections, sectionIndex, 'down')}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      moveSection(section.id, 'down')
-                    }}
-                  >
-                    <ArrowDown size={13} />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="section-delete-button"
-                  aria-label="영역 삭제"
-                  disabled={locked}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    removeSection(section.id)
-                  }}
+              return (
+                <article
+                  className={`section-card compact ${selectedSectionId === section.id ? 'selected' : ''}`}
+                  data-section-id={section.id}
+                  key={section.id}
+                  onClick={() => selectSection(section.id)}
                 >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </article>
-          )
-        })}
-      </div>
+                  <div className="section-card-header compact">
+                    <div className="section-list-title">
+                      <strong>{section.name}</strong>
+                      <small>
+                        Y {section.baseY} / H {section.height} / {section.elementIds.length}개 요소
+                      </small>
+                    </div>
+                    <span className={`section-badge ${section.type}`}>{getTypeLabel(section, tableElement)}</span>
+                    <div className="section-order-buttons">
+                      <button
+                        type="button"
+                        aria-label="영역 위로 이동"
+                        disabled={!canMoveSection(sections, sectionIndex, 'up')}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          moveSection(section.id, 'up')
+                        }}
+                      >
+                        <ArrowUp size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="영역 아래로 이동"
+                        disabled={!canMoveSection(sections, sectionIndex, 'down')}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          moveSection(section.id, 'down')
+                        }}
+                      >
+                        <ArrowDown size={13} />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="section-delete-button"
+                      aria-label="영역 삭제"
+                      disabled={locked}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        removeSection(section.id)
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </>
+      )}
     </section>
   )
 }

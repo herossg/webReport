@@ -14,6 +14,7 @@ interface ReportElementRendererProps {
   element: ReportElement
   data: ReportData
   mode: 'designer' | 'viewer'
+  dataSource?: string
   tableRows?: Record<string, unknown>[]
 }
 
@@ -127,9 +128,10 @@ function getStaticCellStyle(
 function TableElement({
   element,
   data,
+  dataSource,
   mode,
   tableRows,
-}: Pick<ReportElementRendererProps, 'element' | 'data' | 'mode' | 'tableRows'>) {
+}: Pick<ReportElementRendererProps, 'element' | 'data' | 'dataSource' | 'mode' | 'tableRows'>) {
   const tableStyle = getResolvedTableStyle(element)
 
   if (element.tableMode === 'static') {
@@ -157,7 +159,7 @@ function TableElement({
     )
   }
 
-  const rows = tableRows ?? getDataRows(data, element.dataSource)
+  const rows = tableRows ?? getDataRows(data, dataSource ?? element.dataSource)
   const visibleRows = mode === 'designer' ? rows.slice(0, 5) : rows
 
   return (
@@ -205,7 +207,7 @@ function ImageElement({ element }: Pick<ReportElementRendererProps, 'element'>) 
   )
 }
 
-export function ReportElementRenderer({ element, data, mode, tableRows }: ReportElementRendererProps) {
+export function ReportElementRenderer({ element, data, dataSource, mode, tableRows }: ReportElementRendererProps) {
   if (element.type === 'line') {
     return (
       <div
@@ -224,7 +226,7 @@ export function ReportElementRenderer({ element, data, mode, tableRows }: Report
   }
 
   if (element.type === 'table') {
-    return <TableElement element={element} data={data} mode={mode} tableRows={tableRows} />
+    return <TableElement element={element} data={data} dataSource={dataSource} mode={mode} tableRows={tableRows} />
   }
 
   if (element.type === 'image') {

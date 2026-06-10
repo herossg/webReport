@@ -1,4 +1,5 @@
-import { Settings } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
 import { mmToPx, pageSizeOptions, pxToMm } from '../../report/page'
 import type { ReportPageSize } from '../../report/types'
 import { useReportStore } from '../../store/reportStore'
@@ -56,9 +57,11 @@ function MmInput({ label, min, resetKey, value, disabled = false, onCommit }: Mm
 }
 
 export function DocumentSettings() {
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const page = useReportStore((state) => state.template.page)
   const updatePage = useReportStore((state) => state.updatePage)
   const isCustom = page.size === 'custom'
+  const ToggleIcon = isCollapsed ? ChevronRight : ChevronDown
 
   const updateMargin = (side: MarginSide, valueMm: number) => {
     updatePage({
@@ -69,105 +72,114 @@ export function DocumentSettings() {
   }
 
   return (
-    <section className="panel document-settings app-chrome">
+    <section className={`panel document-settings app-chrome ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="panel-header">
         <span>문서 설정</span>
-        <Settings size={16} />
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={isCollapsed ? '문서 설정 펼치기' : '문서 설정 접기'}
+          onClick={() => setIsCollapsed((value) => !value)}
+        >
+          <ToggleIcon size={16} />
+        </button>
       </div>
 
-      <div className="form-stack">
-        <label className="form-field">
-          <span>용지</span>
-          <select value={page.size} onChange={(event) => updatePage({ size: event.target.value as ReportPageSize })}>
-            {pageSizeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.widthMm && option.heightMm
-                  ? `${option.label} (${option.widthMm} x ${option.heightMm}mm)`
-                  : option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      {isCollapsed ? null : (
+        <div className="form-stack">
+          <label className="form-field">
+            <span>용지</span>
+            <select value={page.size} onChange={(event) => updatePage({ size: event.target.value as ReportPageSize })}>
+              {pageSizeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.widthMm && option.heightMm
+                    ? `${option.label} (${option.widthMm} x ${option.heightMm}mm)`
+                    : option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <div className="segmented orientation-toggle" aria-label="용지 방향">
-          <button
-            type="button"
-            className={page.orientation === 'portrait' ? 'active' : ''}
-            onClick={() => updatePage({ orientation: 'portrait' })}
-          >
-            세로
-          </button>
-          <button
-            type="button"
-            className={page.orientation === 'landscape' ? 'active' : ''}
-            onClick={() => updatePage({ orientation: 'landscape' })}
-          >
-            가로
-          </button>
-        </div>
+          <div className="segmented orientation-toggle" aria-label="용지 방향">
+            <button
+              type="button"
+              className={page.orientation === 'portrait' ? 'active' : ''}
+              onClick={() => updatePage({ orientation: 'portrait' })}
+            >
+              세로
+            </button>
+            <button
+              type="button"
+              className={page.orientation === 'landscape' ? 'active' : ''}
+              onClick={() => updatePage({ orientation: 'landscape' })}
+            >
+              가로
+            </button>
+          </div>
 
-        <div className="form-grid">
-          <MmInput
-            label="너비(mm)"
-            min={1}
-            resetKey={`width-${page.size}-${page.orientation}-${page.widthMm}`}
-            value={page.widthMm}
-            disabled={!isCustom}
-            onCommit={(value) => updatePage({ widthMm: value })}
-          />
-          <MmInput
-            label="높이(mm)"
-            min={1}
-            resetKey={`height-${page.size}-${page.orientation}-${page.heightMm}`}
-            value={page.heightMm}
-            disabled={!isCustom}
-            onCommit={(value) => updatePage({ heightMm: value })}
-          />
-        </div>
-
-        <div className="page-size-summary">
-          <strong>
-            {page.width} x {page.height}px
-          </strong>
-          <span>
-            {displayMm(page.widthMm)} x {displayMm(page.heightMm)}mm
-          </span>
-        </div>
-
-        <div className="form-section">
-          <span className="section-title">여백(mm)</span>
           <div className="form-grid">
             <MmInput
-              label="상"
-              min={0}
-              resetKey={`margin-top-${page.margin.top}`}
-              value={pxToMm(page.margin.top)}
-              onCommit={(value) => updateMargin('top', value)}
+              label="너비(mm)"
+              min={1}
+              resetKey={`width-${page.size}-${page.orientation}-${page.widthMm}`}
+              value={page.widthMm}
+              disabled={!isCustom}
+              onCommit={(value) => updatePage({ widthMm: value })}
             />
             <MmInput
-              label="우"
-              min={0}
-              resetKey={`margin-right-${page.margin.right}`}
-              value={pxToMm(page.margin.right)}
-              onCommit={(value) => updateMargin('right', value)}
-            />
-            <MmInput
-              label="하"
-              min={0}
-              resetKey={`margin-bottom-${page.margin.bottom}`}
-              value={pxToMm(page.margin.bottom)}
-              onCommit={(value) => updateMargin('bottom', value)}
-            />
-            <MmInput
-              label="좌"
-              min={0}
-              resetKey={`margin-left-${page.margin.left}`}
-              value={pxToMm(page.margin.left)}
-              onCommit={(value) => updateMargin('left', value)}
+              label="높이(mm)"
+              min={1}
+              resetKey={`height-${page.size}-${page.orientation}-${page.heightMm}`}
+              value={page.heightMm}
+              disabled={!isCustom}
+              onCommit={(value) => updatePage({ heightMm: value })}
             />
           </div>
+
+          <div className="page-size-summary">
+            <strong>
+              {page.width} x {page.height}px
+            </strong>
+            <span>
+              {displayMm(page.widthMm)} x {displayMm(page.heightMm)}mm
+            </span>
+          </div>
+
+          <div className="form-section">
+            <span className="section-title">여백(mm)</span>
+            <div className="form-grid">
+              <MmInput
+                label="상"
+                min={0}
+                resetKey={`margin-top-${page.margin.top}`}
+                value={pxToMm(page.margin.top)}
+                onCommit={(value) => updateMargin('top', value)}
+              />
+              <MmInput
+                label="우"
+                min={0}
+                resetKey={`margin-right-${page.margin.right}`}
+                value={pxToMm(page.margin.right)}
+                onCommit={(value) => updateMargin('right', value)}
+              />
+              <MmInput
+                label="하"
+                min={0}
+                resetKey={`margin-bottom-${page.margin.bottom}`}
+                value={pxToMm(page.margin.bottom)}
+                onCommit={(value) => updateMargin('bottom', value)}
+              />
+              <MmInput
+                label="좌"
+                min={0}
+                resetKey={`margin-left-${page.margin.left}`}
+                value={pxToMm(page.margin.left)}
+                onCommit={(value) => updateMargin('left', value)}
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   )
 }

@@ -1,0 +1,254 @@
+{
+  "id": "monthly-sales-file",
+  "name": "URL 호출 월별 매출 리포트",
+  "description": "URL 기반 Viewer 테스트용 리포트 템플릿입니다.",
+  "version": 1,
+  "updatedAt": "2026-06-10",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "width": 794,
+    "height": 1123,
+    "widthMm": 210,
+    "heightMm": 297,
+    "margin": {
+      "top": 48,
+      "right": 48,
+      "bottom": 48,
+      "left": 48
+    },
+    "unit": "px"
+  },
+  "dataSources": [
+    {
+      "id": "header",
+      "label": "헤더 데이터",
+      "description": "회사명, 리포트 제목, 조회 기간처럼 고정 영역에서 사용하는 데이터입니다.",
+      "url": "/report-data/monthly-sales.json",
+      "path": ""
+    },
+    {
+      "id": "orders",
+      "label": "주문 목록",
+      "description": "반복 테이블에 표시할 주문 배열입니다.",
+      "url": "/report-data/monthly-sales.json",
+      "path": "orders"
+    },
+    {
+      "id": "summary",
+      "label": "요약 데이터",
+      "description": "합계와 같은 요약 영역에서 사용하는 데이터입니다.",
+      "url": "/report-data/monthly-sales.json",
+      "path": ""
+    }
+  ],
+  "sections": [
+    {
+      "id": "report-header",
+      "name": "고정 출력 영역",
+      "type": "fixed",
+      "role": "header",
+      "flow": "continue",
+      "repeat": "once",
+      "baseY": 0,
+      "height": 156,
+      "dataSource": "header",
+      "gapAfter": 0,
+      "elementIds": ["title", "company-name", "report-period"]
+    },
+    {
+      "id": "detail-table",
+      "name": "반복 테이블 영역",
+      "type": "table",
+      "role": "body",
+      "flow": "continue",
+      "repeat": "once",
+      "baseY": 156,
+      "height": 354,
+      "dataSource": "orders",
+      "gapAfter": 0,
+      "elementIds": ["orders-table"],
+      "tableElementId": "orders-table",
+      "repeatHeader": true,
+      "headerHeight": 40,
+      "rowHeight": 40
+    },
+    {
+      "id": "report-summary",
+      "name": "요약 영역",
+      "type": "fixed",
+      "role": "body",
+      "flow": "continue",
+      "repeat": "once",
+      "baseY": 510,
+      "height": 88,
+      "dataSource": "summary",
+      "gapAfter": 0,
+      "elementIds": ["total-amount"]
+    },
+    {
+      "id": "page-footer",
+      "name": "페이지 반복 영역",
+      "type": "fixed",
+      "role": "footer",
+      "flow": "continue",
+      "repeat": "eachPage",
+      "baseY": 1018,
+      "height": 56,
+      "dataSource": "header",
+      "gapAfter": 0,
+      "elementIds": ["manager"]
+    }
+  ],
+  "elements": [
+    {
+      "id": "title",
+      "type": "text",
+      "name": "리포트 제목",
+      "x": 48,
+      "y": 44,
+      "width": 420,
+      "height": 42,
+      "sectionId": "report-header",
+      "value": "{{report.title}}",
+      "style": {
+        "fontSize": 28,
+        "fontWeight": "700",
+        "color": "#18212f",
+        "backgroundColor": "#ffffff",
+        "borderColor": "#d7dde8",
+        "borderWidth": 0,
+        "borderRadius": 4,
+        "padding": 0,
+        "textAlign": "left"
+      }
+    },
+    {
+      "id": "company-name",
+      "type": "text",
+      "name": "회사명",
+      "x": 48,
+      "y": 96,
+      "width": 340,
+      "height": 24,
+      "sectionId": "report-header",
+      "value": "회사: {{company.name}}",
+      "style": {
+        "fontSize": 13,
+        "fontWeight": "400",
+        "color": "#5f6b7a",
+        "backgroundColor": "#ffffff",
+        "borderColor": "#d7dde8",
+        "borderWidth": 0,
+        "borderRadius": 4,
+        "padding": 0,
+        "textAlign": "left"
+      }
+    },
+    {
+      "id": "report-period",
+      "type": "text",
+      "name": "조회 기간",
+      "x": 508,
+      "y": 54,
+      "width": 238,
+      "height": 28,
+      "sectionId": "report-header",
+      "value": "기간: {{report.period}}",
+      "style": {
+        "fontSize": 13,
+        "fontWeight": "400",
+        "color": "#5f6b7a",
+        "backgroundColor": "#ffffff",
+        "borderColor": "#d7dde8",
+        "borderWidth": 0,
+        "borderRadius": 4,
+        "padding": 0,
+        "textAlign": "right"
+      }
+    },
+    {
+      "id": "orders-table",
+      "type": "table",
+      "name": "주문 테이블",
+      "x": 48,
+      "y": 156,
+      "width": 698,
+      "height": 354,
+      "sectionId": "detail-table",
+      "tableMode": "data",
+      "dataSource": "orders",
+      "columns": [
+        { "id": "orderNo", "label": "주문번호", "field": "orderNo", "width": 150 },
+        { "id": "customerName", "label": "고객명", "field": "customerName", "width": 130 },
+        { "id": "productName", "label": "상품명", "field": "productName", "width": 230 },
+        { "id": "amount", "label": "금액", "field": "amount", "width": 130, "align": "right" }
+      ],
+      "tableStyle": {
+        "headerBackgroundColor": "#f1f5f9",
+        "headerColor": "#334155",
+        "bodyBackgroundColor": "#ffffff",
+        "alternateRowBackgroundColor": "#f8fafc",
+        "borderColor": "#d7dde8",
+        "borderWidth": 1,
+        "cellPadding": 9,
+        "rowHeight": 40
+      },
+      "style": {
+        "fontSize": 14,
+        "fontWeight": "400",
+        "color": "#18212f",
+        "backgroundColor": "#ffffff",
+        "borderColor": "#d7dde8",
+        "borderWidth": 1,
+        "borderRadius": 4,
+        "padding": 0,
+        "textAlign": "left"
+      }
+    },
+    {
+      "id": "total-amount",
+      "type": "text",
+      "name": "합계 금액",
+      "x": 498,
+      "y": 532,
+      "width": 248,
+      "height": 44,
+      "sectionId": "report-summary",
+      "value": "합계: {{ordersSummary.totalAmount}}원",
+      "style": {
+        "fontSize": 16,
+        "fontWeight": "700",
+        "color": "#0f766e",
+        "backgroundColor": "#eefaf8",
+        "borderColor": "#9fd8cf",
+        "borderWidth": 1,
+        "borderRadius": 4,
+        "padding": 8,
+        "textAlign": "right"
+      }
+    },
+    {
+      "id": "manager",
+      "type": "field",
+      "name": "담당자",
+      "x": 48,
+      "y": 1030,
+      "width": 220,
+      "height": 28,
+      "sectionId": "page-footer",
+      "binding": "report.manager",
+      "style": {
+        "fontSize": 13,
+        "fontWeight": "400",
+        "color": "#5f6b7a",
+        "backgroundColor": "#ffffff",
+        "borderColor": "#d7dde8",
+        "borderWidth": 0,
+        "borderRadius": 4,
+        "padding": 0,
+        "textAlign": "left"
+      }
+    }
+  ]
+}

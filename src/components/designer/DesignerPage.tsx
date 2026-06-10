@@ -1,4 +1,5 @@
 import { JsonPanel } from '../JsonPanel'
+import { DataSourceSettings } from './DataSourceSettings'
 import { DocumentSettings } from './DocumentSettings'
 import { PropertiesPanel } from './PropertiesPanel'
 import { ReportCanvas } from './ReportCanvas'
@@ -10,6 +11,7 @@ export function DesignerPage() {
     <div className="designer-grid">
       <div className="left-column">
         <DocumentSettings />
+        <DataSourceSettings />
         <SectionSettings />
         <Toolbox />
       </div>
